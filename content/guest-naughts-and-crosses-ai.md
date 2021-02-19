@@ -14,28 +14,29 @@ a game? cover: images/featured/pb-guest.png
 * [Basic game implementation](#basic-game-implementation)
     * [Starting the code](#starting-the-code)
     * [The main class](#the-main-class)
+    * [Who's the winner?](#whos-the-winner)
 * [References](#references)
 
 <a name="introduction"></a>
-
 ## Introduction
 
-![Would you like to play a game?](images/guest-naughts-and-crosses-ai/like-to-play.png)[^WG]
+![Would you like to play a game?](images/guest-naughts-and-crosses-ai/like-to-play.png)
+_([Wargames (1983)](https://www.imdb.com/title/tt0086567/))_
 
 If you happen to have recently hacked into [NORAD (North American Aerospace Defense Command)](https://www.norad.mil/)
-then it is quite possible that you are stuck in the 1980s and are looking to play **Global Thermonuclear War**[^WG],
+then it is quite possible that you are stuck in the 1980s and are looking to play **Global Thermonuclear War** 
+_([Wargames (1983)](https://www.imdb.com/title/tt0086567/))_,
 take it from me: it really won't turn out hope you hope.
 
 On the other hand if you are looking for what is arguably the simplest of all strategy games, then you've come to the
-right place. This article was inspired by the _PyBites Coding Challenge 12_—**Build a Tic-tac-toe Game**[^PCC12].
+right place. This article was inspired by the [_PyBites Coding Challenge 12_—**Build a Tic-tac-toe Game**](https://codechalleng.es/challenges/12/).
 
 <a name="game-concept"></a>
-
 ### Game concept
 
 ![Image of naughts and crosses grid](images/guest-naughts-and-crosses-ai/grid-blank.png)
 
-Traditionally, naughts and crosses[^WP] is a pencil and paper game for two players: one playing the symbol 'O',
+Traditionally, naughts and crosses _([Wikipedia article on Tic-tac-toe](https://en.wikipedia.org/wiki/Tic-tac-toe))_ is a pencil and paper game for two players: one playing the symbol 'O',
 pronounced 'naught' or 'oh', and the other playing 'X', pronounced 'cross' or 'ex'. The game begins with a 3x3 grid of
 nine cells, and the players take turns at drawing their symbols into one of the empty cells. The aim is to achieve the
 occupation of three cells in a row, horizontally, vertically or diagonally, with their own symbol, whilst _at the same
@@ -45,7 +46,6 @@ figure below.
 ![Image of winning positions](images/guest-naughts-and-crosses-ai/winning-positions.png)
 
 <a name="basic-game-implementation"></a>
-
 ## Basic game implementation
 
 The first thing that is necessary in implementing _any_ game is deciding how it should be represented both to the player
@@ -79,7 +79,6 @@ Assuming that the third option is taken we have the following representations:
 ![Image of external cell numbering](images/guest-naughts-and-crosses-ai/numbering-external.png)
 
 <a name='starting-the-code'></a>
-
 ### Starting the code
 
 It is always wise to start off a Python file with a descriptive comment about the file, who wrote it, any copyright
@@ -87,7 +86,6 @@ declarations, the place within a project that it belongs and what the weather is
 less likely on that last one. So, we begin our project and, as it is going to be a single file, just comment on what the
 whole project is about. If this was to be a one of a number of files then the description would focus upon the
 functionality of this particular file.
-
 ```python
 """
     Proper name: 'Naughts and Crosses'
@@ -96,16 +94,13 @@ functionality of this particular file.
     Reason: Who on Earth has a clue?  It's an historical thing.
 """
 ```
-
 Lovely. That'll do nicely. Not much coding going on there though. There are going to be some `import`s of various
 modules to help us with the coding, straight off the bat we know that we are going to be dealing with some kind of
 memory cells, this brings to mind that we'll need coding hints for things like `List` and perhaps `Union` so we'll add
 those in for a starter. Later on we'll add more in at this place in the file.
-
 ```python
 from typing import List, Union
 ```
-
 There are a number of elements of the game that can be usefully given names to help to document the code as we go along.
 The extra advantage to defining things by name at this point is that if we want to change things later on, then any
 changes made here automatically reflect through the whole code. (Hurrah!)
@@ -116,36 +111,29 @@ to have 'O' and 'X' to show the symbols—that much is obvious—but there is a 
 be just a space character, but that isn't very _visible_ if you want to **see** the grid, particular when it is empty,
 but also when working out which row and column a single symbol might be on. For this reason we'll use the
 underscore ('_') to represent a blank space.
-
 ```python
 # External representations of the playing symbols 
 BLANK_SYM: str = '_'
 O_SYM: str = 'O'
 X_SYM: str = 'X'
 ```
-
 That will make any grids clear:
-
 ```text
  ___     _X_     ___
  ___     ___     _O_
  ___     ___     ___
 Blank / One X / One O
 ```
-
 What about internal representations? Does it matter? We could use the same symbols, however we _do_ know that string
 comparisons are slower than integer comparisons, and so it would probably be better to use the quicker of the two given
 that there are a lot of comparisons that will be made. Let us keep it simple and just use the values zero to two.
-
 ```python
 # Internal representations of the playing symbols 
 BLANK_VALUE: int = 0
 O_VALUE: int = 1
 X_VALUE: int = 2
 ```
-
 Now that we have those defined, we can create a couple of dictionaries that map between the two systems:
-
 ```python
 # Translation between systems
 VAL_TO_SYM: dict = {
@@ -159,17 +147,14 @@ SYM_TO_VAL: dict = {
     X_SYM: X_VALUE,
 }
 ```
-
 The chances are that whilst we are going through checking for winning lines and such like, we might want a quick way to
 refer to the opponent of the current player; we might not need it, but it could prove useful:
-
 ```python
 OPPONENT: dict = {
     O_VALUE: X_VALUE,
     X_VALUE: O_VALUE,
 }
 ```
-
 Just a couple of other things that need to be taken care of: the translation of internal to external grid positions, and
 vise versa. Looking at the graphical images of the two representations, it is easy to write out a couple of dictionary
 constants mapping between the two:
@@ -188,14 +173,11 @@ EXTERNAL_TO_INTERNAL: dict = {
     1: 6, 2: 7, 3: 8
 }
 ```
-
 In order to help validate the player input we'll create a list of valid positions for their pieces, remember that
 `range()` returns value that _includes_ the first parameter, but _excludes_ the second parameter:
-
 ```python
 VALID_POSITIONS: Set[int] = set(range(1, 10))
 ```
-
 I originally created this as a `list` but realised later that it was better (essentially more efficient) as a `set` so
 it is necessary to add `Set` to the `from typing import` line
 
@@ -217,16 +199,14 @@ WINNING_COMBINATIONS: List[Tuple[int, int, int]] = [
 ```
 
 <a name='the-main-class'></a>
-
 ### The main class
 
 Class. Yes, this game is going to be encompassed within an object!  We can start getting into the nitty gritty right off
 by declaring our class… in deference to our US cousins we'll call our class `TicTacToe`—it's both shorter than
-`NaughtsAndCrosses` and less likely to cause argument over 'Nau…' versus 'Nou…'[^Naught].
+`NaughtsAndCrosses` and less likely to cause argument over 'Nau…' versus 'Nou…' _([Naught vs. Nought](https://www.grammar.com/naught_vs._nought))_.
 
 At the start of the class we'll define a few variables that are going to be useful throughout the game code, and define
 the types that we're expecting them to hold:
-
 ```python
 class TicTacToe:
     # define the types of various internal variables
@@ -235,7 +215,6 @@ class TicTacToe:
     _turn_cycle: Iterator[int]
     _move: int
 ```
-
 Going through these:
 
 * `_board`: this will hold the current _internal_ representation of the playing area;
@@ -246,16 +225,13 @@ Going through these:
 
 As we're adding yet another type hint here, it's probably best to make sure that our import statement has caught up with
 all the various additions:
-
 ```python
 from typing import List, Union, Set, Tuple, Iterator
 ```
-
 Hopefully that's got all our typing needs covered now.
 
 An important part of every class in the `__init__()` initializer method, or _Constructor_, that is used to set up the
 blank object:
-
 ```python
     def __init__(self):
     """Constructor, allocate the blank board"""
@@ -265,22 +241,19 @@ blank object:
     self._turn = self._next_turn()
     self._move = 0
 ```
-
-A little bit of explanation may be useful here, the `_board` is set by the curious construction above: multiplying a
+A little explanation may be useful here, the `_board` is set by the curious construction above: multiplying a
 single element list by the length of a set?? In this case the `*` does not literally indicate mathematical
 multiplication, but rather duplication: it indicates that the list element is to be repeated. As an example here is a
 sort console log showing the use of the functionality:
-
 ```text
 Python 3.8.5 (default, Sep  4 2020, 07:30:14) 
 [GCC 7.3.0] on linux
-In[2]: f = [1]
-In[3]: f
-Out[3]: [1]
-In[4]: f * 8
-Out[4]: [1, 1, 1, 1, 1, 1, 1, 1]
+>>> f = [1]
+>>> f
+[1]
+>>> f * 8
+[1, 1, 1, 1, 1, 1, 1, 1]
 ```
-
 This is a simple method of creating a list containing a repeated element, however, it should be noted that it is not
 good for very large lists due to the requirement of core memory in making the list. We know that in this case the length
 of the `VALID_POSITIONS` set is only nine so there is no worry about excessive memory use.
@@ -288,13 +261,13 @@ of the `VALID_POSITIONS` set is only nine so there is no worry about excessive m
 The `_turn_cycle` variable is created with a very useful element of the `itertools` module. `cycle` creates a repeating
 iterator from the provided iterable parameter. Here we are passing a two element list, consisting of the two player
 options, and in return we get an object that will respond to the `next()` method by returning each element in turn, when
-the list is exhausted it automatically starts at the beginning again.[^Cycle] Our imports do not currently include the
-itertools module, so we need to add the extra import line at the top of the file:
-
+the list is exhausted it automatically starts at the beginning again _([Python Docs, 
+`itertols.cycle(iterable)`](https://docs.python.org/3.8/library/itertools.html#itertools.cycle))_. 
+Our imports do not currently include the itertools module, so we need to add the extra import line at the top of the 
+file:
 ```python
 from itertools import cycle
 ```
-
 Looking back at the `__init__()` method it can be seen that `_turn` is initialised by the return value of another
 method, `_next_turn()`. It is possibly easy to guess what this method does, but let's sketch it in now to be sure:
 ```python
@@ -335,7 +308,143 @@ unwind it into a longer version:
             output.append(' '.join(row))
         return '\n'.join(output)
 ```
-The use of `VAL_TO_SYM` translates the internal values to the external symbols.
+It is much easier to see now that there are two loops counting from zero to two (remember that the value in `range()` 
+is exclusive on the upper limit); the outer loop `s` counts the rows, whilst the inner loop `t` counts the columns. A 
+cell value `c` is extracted from the `_board` using an offset calculation, and then the `VAL_TO_SYM` dictionary 
+translates the internal value to the external symbol and adds it to `row`. Once a full `row` has been compiled, 
+it is added to `output` as a single string with spaces between each value using `' '.join(row)`. Finally, once the 
+three rows have been added to `output`, they, in turn, are joined together with a newline character inserted between
+each row. The joined together rows are returned as a single string, completing the method.  The 'single line' version 
+of the method, above, has all the same functionality, but tightly parcelled up in a [nested list comprehension](https://docs.python.org/3.8/tutorial/datastructures.html#nested-list-comprehensions).
+
+Now we're going to introduce a couple of helper methods to the class.  These two methods will not actually change any
+element of the class object, but rather compute the logical mappings between internal and external grid positions. 
+Since they are not making any changes, they can be marked as 'static' methods.  All they actually do is to use the 
+dictionaries that we set up earlier to perform the translation.  Using methods in this way, again allows modifications
+to structures without requiring wholesale rewrites.
+```python
+    @staticmethod
+    def _ndx_to_cell_(ndx: int) -> int:
+        return EXTERNAL_TO_INTERNAL[ndx]
+
+    @staticmethod
+    def _cell_to_ndx_(cell: int) -> int:
+        return INTERNAL_TO_EXTERNAL[cell]
+```
+In order to save on typing, we have named these methods using the abbreviation 'ndx' for the external index, and 'cell' 
+for the internal cell offset.
+
+Right, we're now up to the point where we're going to actually put a players move onto the board.  As this is an 
+interaction between the player and the computer, it is always wise to attempt to anticipate things that the player
+could do wrong… such as entering the number of a cell that has already been played, or even trying to play in cells that
+do not exist!  Python has the perfect mechanism for flagging up this kind of error: the `Exception` system.  We can 
+create a couple of custom exceptions for ourselves by putting the following code _above_ the main class declaration:
+```python
+class BlockedCell(Exception):
+    pass
+
+class InvalidMove(Exception):
+    pass
+```
+As easy as that! To create a custom exception all we need to do is to create a class inheriting from the systems 
+`Exception` class.  If we wanted our exception to do something beyond the normal exception system, such as automatic 
+logging of the error, then it can be built onto this definition; otherwise, if we just want a new exception name, it is
+appropriate to state `pass`, meaning (in this case) don't add anything to the standard class.
+
+So to the `player_move()` method. As the game object is stateful (it knows what the current state of play is and keeps
+track of which player is playing), we can just pass the location that the user wishes to play in.  This will be an 
+_external_ position as it's coming from the user, so we'll be making use of the `_ndx_to_cell_()` helper method to do
+the appropriate translation once we've made sure that the `target_position` is on the board. Here's the code:
+```python
+    def player_move(self, target_position: int):
+        """
+        Attempt to place the player move
+    
+        May raise exceptions: BlockCell, InvalidMove
+        """
+        if target_position in VALID_POSITIONS:
+            cell = self._ndx_to_cell_(target_position)
+            if self._board[cell] is BLANK_VALUE:
+                self._board[cell] = self._turn
+            else:
+                raise BlockedCell(
+                    f'Cannot play at {target_position}, it is already held by {VAL_TO_SYM[self._board[cell]]}')
+        else:
+            raise InvalidMove(f'Invalid move, {target_position} not available')
+```
+Notice that the documentary comment (the `docstring`) at the start of the method notes that it can raise exceptions: 
+this is a good habit to cultivate so that you know by requesting the documentation either by using an IDE that 
+automatically does so, or by typing `help(TicTacToe.player_move)` in the interactive python console:
+```text
+>>> from tictactoe import TicTacToe 
+>>> help(TicTacToe.player_move)
+Help on function player_move in module tictactoe:
+
+player_move(self, target_position: int)
+    Attempt to place the player move
+    
+    May raise exceptions: BlockCell, InvalidMove
+```
+The second thing to note is that it doesn't assume that the player is either 'O' or 'X', rather it uses the `_turn`
+variable to identify the current player.  In this way, the same routine can play to the board for either player.
+
+Once the player has made their move, the (private) method `_next_turn()` will advance to the next player. Why was it
+made as a 'private' method?  The reason was because it is designed to work with _internal_ representations, it is a 
+wrapper around the `_turn_cycle` iterator, and we want to stop the internal values being inadvertently revealed outside 
+the object. We need a public method that can be used to switch players, save the active player, and which returns the 
+_external_ representation of the player whose turn it is:
+```python
+    def next_player(self) -> str:
+        self._turn = self._next_turn()
+        return VAL_TO_SYM[self._turn]
+```
+We use the private method to obtain the next scheduled player, save it as the current `_turn` and then use the 
+`VAL_TO_SYM` dict to return either 'O' or 'X' as appropriate.
+
+<a name="whos-the-winner"></a>
+### Who's the winner?
+
+To summarise, our `TicTacToe` class so far:
+
+* sets up a blank board;
+* keeps track of which player has the turn;
+* allows the player to place a symbol on an empty space; and
+* returns a textural representation of the board.
+
+There is something missing though: deciding a winner! 
+
+There are three distinct outcomes for a finished game: win, lose or draw. In order for the outcome to be revealed we
+can create properties that evaluate the state of the board with respect to the current player.  As there is a common
+factor in all these test, we make a helper method, `find_winner()`, to hold the common code.
+
+```python
+    def find_winner(self) -> Union[int, None]:
+        """Find a winner, 'O', 'X' or None"""
+        for s in [O_VALUE, X_VALUE]:
+            if any(all(self._board[c] == s for c in combo) for combo in WINNING_COMBINATIONS):
+                return s
+        return None
+
+    @property
+    def win(self) -> bool:
+        """Test if the game is won"""
+        return self.find_winner() == self._turn
+
+    @property
+    def lose(self) -> bool:
+        """Test if the game is lost"""
+        return self.find_winner() == OPPONENT[self._turn]
+
+    @property
+    def draw(self) -> bool:
+        """Test if the game is a draw"""
+        return not (any(c == BLANK_VALUE for c in self._board))
+
+    @property
+    def win_draw_lose(self) -> bool:
+        """Test if the game is still in play"""
+        return self.win or self.lose or self.draw
+```
 
 <!-- add your closer here! -->
 
@@ -345,11 +454,12 @@ The use of `VAL_TO_SYM` translates the internal values to the external symbols.
 
 ## References
 
-* [^WG]: [Wargames (1983)](https://www.imdb.com/title/tt0086567/)
-* [^WP]: [Wikipedia article on Tic-tac-toe](https://en.wikipedia.org/wiki/Tic-tac-toe)
-* [^PCC12]: [PyBites coding challenge 12](https://codechalleng.es/challenges/12/)
-* [^Naught]: [Naught vs. Nought](https://www.grammar.com/naught_vs._nought)
-* [^Cycle]: [Python Docs, `itertols.cycle(iterable)`](https://docs.python.org/3.8/library/itertools.html#itertools.cycle)
+* [Wargames (1983)](https://www.imdb.com/title/tt0086567/)
+* [Wikipedia article on Tic-tac-toe](https://en.wikipedia.org/wiki/Tic-tac-toe)
+* [PyBites coding challenge 12](https://codechalleng.es/challenges/12/)
+* [Naught vs. Nought](https://www.grammar.com/naught_vs._nought)
+* [Python Docs, `itertols.cycle(iterable)`](https://docs.python.org/3.8/library/itertools.html#itertools.cycle)
+* [Python Docs, Nested list comprehension](https://docs.python.org/3.8/tutorial/datastructures.html#nested-list-comprehensions)
 
 -----
 
