@@ -15,6 +15,8 @@ a game? cover: images/featured/pb-guest.png
     * [Starting the code](#starting-the-code)
     * [The main class](#the-main-class)
     * [Who's the winner?](#whos-the-winner)
+* [Let's play](#lets-play)
+* [I always lose playing against myself](#i-always-lose-playing-against-myself)
 * [References](#references)
 
 <a name="introduction"></a>
@@ -234,12 +236,12 @@ An important part of every class in the `__init__()` initializer method, or _Con
 blank object:
 ```python
     def __init__(self):
-    """Constructor, allocate the blank board"""
-    # Create an array of cells to hold the grid positions.
-    self._board = [BLANK_VALUE] * len(VALID_POSITIONS)
-    self._turn_cycle = cycle([O_VALUE, X_VALUE])
-    self._turn = self._next_turn()
-    self._move = 0
+        """Constructor, allocate the blank board"""
+        # Create an array of cells to hold the grid positions.
+        self._board = [BLANK_VALUE] * len(VALID_POSITIONS)
+        self._turn_cycle = cycle([O_VALUE, X_VALUE])
+        self._turn = self._next_turn()
+        self._move = 0
 ```
 A little explanation may be useful here, the `_board` is set by the curious construction above: multiplying a
 single element list by the length of a set?? In this case the `*` does not literally indicate mathematical
@@ -315,7 +317,8 @@ translates the internal value to the external symbol and adds it to `row`. Once 
 it is added to `output` as a single string with spaces between each value using `' '.join(row)`. Finally, once the 
 three rows have been added to `output`, they, in turn, are joined together with a newline character inserted between
 each row. The joined together rows are returned as a single string, completing the method.  The 'single line' version 
-of the method, above, has all the same functionality, but tightly parcelled up in a [nested list comprehension](https://docs.python.org/3.8/tutorial/datastructures.html#nested-list-comprehensions).
+of the method, above, has all the same functionality, but tightly parcelled up in a 
+[nested list comprehension](https://docs.python.org/3.8/tutorial/datastructures.html#nested-list-comprehensions).
 
 Now we're going to introduce a couple of helper methods to the class.  These two methods will not actually change any
 element of the class object, but rather compute the logical mappings between internal and external grid positions. 
@@ -415,8 +418,7 @@ There is something missing though: deciding a winner!
 
 There are three distinct outcomes for a finished game: win, lose or draw. In order for the outcome to be revealed we
 can create properties that evaluate the state of the board with respect to the current player.  As there is a common
-factor in all these test, we make a helper method, `find_winner()`, to hold the common code.
-
+thread in all these tests, we make a helper method, `find_winner()`, to hold the common code.
 ```python
     def find_winner(self) -> Union[int, None]:
         """Find a winner, 'O', 'X' or None"""
@@ -424,7 +426,76 @@ factor in all these test, we make a helper method, `find_winner()`, to hold the 
             if any(all(self._board[c] == s for c in combo) for combo in WINNING_COMBINATIONS):
                 return s
         return None
+```
+There is a strange looking construct in the `if` statement here `any()` and `all()` are builtin functions of Python,
+([Python Docs, `all(iterable)`](https://docs.python.org/3.8/library/functions.html#all)
+and [Python Docs, `any(iterable)`](https://docs.python.org/3.8/library/functions.html#any))
+that can evaluate a group of boolean expressions in a way that smartly returns a result as soon as it is confident.
+Taking `any()` as the example, it will work through all the elements of the iterable until it find _one_ that evaluates
+to `True`, if it gets to the end of the iterable, or the iterable is empty, then it returns `False`. This technique of 
+stopping as soon as a result is confident is known as *short circuit* evaluation. As a regular function it would be 
+coded as:
+```python
+def any(iterable):
+    for element in iterable:
+        if element:
+            return True
+    return False
+```
+Similarly, `all()` works through the iterable until it finds one that is False:
+```python
+def all(iterable):
+    for element in iterable:
+        if not element:
+            return False
+    return True
+```
+(These two examples are taken from the Python Docs page on 
+[library functions](https://docs.python.org/3.8/library/functions.html).)
+Going back to the `find_winner()` method, we can see that there is an `all()` function nested inside an `any()` 
+function: let us unpick what is going on.  Just as with the `__str__()` method above, we have a nested comprehension, so
+we can unroll it and see it in an expanded view, taking into account the definitions of `all()` and `any()` above:
+```python
+    def find_winner(self) -> Union[int, None]:
+        """Find a winner, 'O', 'X' or None"""
+        for s in [O_VALUE, X_VALUE]:
+            # ANY of the following
+            any_ok = False
+            for combo in WINNING_COMBINATIONS:
+                # ALL of the following
+                all_ok = True
+                for c in combo:
+                    if self._board[c] != s:
+                        all_ok = False
+                        break
+                if all_ok:
+                    any_ok = True
+                    break
+            if any_ok:
+                return s
+        return None
+```
+Starting from the bit that hasn't changed, we're going to loop through the two player values to make the comparisons.
+The variable `s` is being used to hold the currently being tested player, normally it would be recommended that a 
+longer, descriptive, name would be used but to do so in the original short method would have resulted in an
+overlong line with negligible benefit: this kind of trade off should be considered carefully before being used too 
+often. At the next level we process the `any()` function.  As we're not using the builtin function, we need a flag to
+track when we can _short circuit_ the test.  We are going to loop through each of the possible `WINNING_COMBINATIONS`,
+passing each combination to the `all()` function level. Again a flag is needed to keep track… 
 
+We've come to the meat of the method now: `combo` holds a particular winning combination of cells, `all_ok` is set to
+`True` as the default 'return' value for the inner loop and `any_ok` is set to `False` as the default 'return' value 
+for the outer loop.  The inner loop looks through the cells indicated in `combo` to check if they all have the currently
+being tested player: as soon as a cell is found that doesn't have that value, `all_ok` is reset to `False` and a `break`
+is executed to 'escape' from the `for c in combo:` loop. At this point either the test found a cell that wasn't the 
+right player, or it looped right through finding all the cells belonging to the currently being tested player.  If the 
+latter happened, then `all_ok` will still be set to `True` and we've found a winning line so we can set `any_ok` to
+`True` and `break` out of the `for combo in…` loop.  Again we do a check, this time on `any_ok`  to see if there's been
+a winning line found, and, if so, we actually return the winning player value.  Finally if the `for s in…` loop passes 
+out with no winning line found for either player then we return `None`.  This indicates 'no winner' _not_ 'draw'.
+
+Now that we have that helper method we can create a set of properties that will provide the current state of the game:
+```python
     @property
     def win(self) -> bool:
         """Test if the game is won"""
@@ -445,13 +516,101 @@ factor in all these test, we make a helper method, `find_winner()`, to hold the 
         """Test if the game is still in play"""
         return self.win or self.lose or self.draw
 ```
+The properties `win` and `lose` purely check the returned value to see if it is the player or the opponents internal
+value. On the other hand, `draw` searches through the board for a `BLANK_VALUE`, if there are no blanks present then
+there is no where left to play, therefore, it's a draw. Lastly, the property `win_draw_lose` checks to see if there is 
+any reason for the game to have ended without being specific.
+
+One final property and we should be ready to play!  What is that last property?  The player symbol is needed to prompt
+the appropriate player for their turn:
+```python
+    @property
+    def player(self) -> str:
+        return VAL_TO_SYM[self._turn]
+```
+
+<a name="lets-play"></a>
+## Let's play
+
+Time to write some code to actually use the `TicTacToe` class.  In the normal line of development we would have been
+developing this piece of code in tandem with the actual class, however, in order to concentrate on the class it has
+been left until this point.  As it's going to be tacked to the end of the file we'll use a special test so that it can
+still be used as a module if so desired:
+```python
+if __name__ == "__main__":
+```
+When Python imports a file through an `import` instruction (or similar), it automatically sets the special variable 
+`__name__` to the name of the module. However, when Python loads a module as a script in order to 'run' it, then 
+`__name__` is set to the value "__main__" allowing us to easily detect when we're, ahem, the main file.
+
+We are going to set up a 'forever' loop to keep playing… we won't ever want to stop will we??
+```python
+    while True:
+```
+
+```python
+        game = TicTacToe()
+        print("Let's play Naughts and Crosses!")
+```
+
+```python
+        while not game.win_draw_lose:
+            print('\nCurrent state of game:')
+            print(game)
+```
+
+```python
+            try:
+                mv = input(f'Where would you like to play your {game.player}? ')
+                position = int(mv)
+```
+
+```python
+                game.player_move(position)
+```
+
+```python
+                if game.win:
+                    print(game)
+                    print(f'**WIN** We have a WINNER!!  Well done {game.player}.')
+                    break
+                if game.draw:
+                    print(game)
+                    print('**DRAW** That was a little pointless in the end.')
+                    break
+```
+
+```python
+                game.next_player()
+```
+
+```python
+            except InvalidMove as exc:
+                print(f'Poor choice, Grasshopper, "{mv}" is not and acceptable move: use the numeric keypad layout!')
+                print(f'DEBUG: {exc}')
+            except BlockedCell as exc:
+                print(f'Sorry that spot is already taken.')
+                print(f'DEBUG: {exc}')
+```
+
+```python
+            except ValueError as exc:
+                print(f'Please indicate position as though it were the numeric keypad.')
+                print(f'DEBUG: {exc}')
+```
+
+< a name='i-always-lose-playing-against-myself'></a>
+## I always lose playing against myself
+
+It can get tiring playing just against yourself, perhaps we can spice things up a bit by getting the computer to play
+against us?
+
 
 <!-- add your closer here! -->
 
 -- [Geoff Riley](pages/guests.html#geoff-riley)
 
 <a name='references'></a>
-
 ## References
 
 * [Wargames (1983)](https://www.imdb.com/title/tt0086567/)
@@ -460,6 +619,8 @@ factor in all these test, we make a helper method, `find_winner()`, to hold the 
 * [Naught vs. Nought](https://www.grammar.com/naught_vs._nought)
 * [Python Docs, `itertols.cycle(iterable)`](https://docs.python.org/3.8/library/itertools.html#itertools.cycle)
 * [Python Docs, Nested list comprehension](https://docs.python.org/3.8/tutorial/datastructures.html#nested-list-comprehensions)
+* [Python Docs, `all(iterable)`](https://docs.python.org/3.8/library/functions.html#all)
+* [Python Docs, `any(iterable)`](https://docs.python.org/3.8/library/functions.html#any)
 
 -----
 
