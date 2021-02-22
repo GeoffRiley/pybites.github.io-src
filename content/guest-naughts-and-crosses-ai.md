@@ -547,28 +547,40 @@ We are going to set up a 'forever' loop to keep playing… we won't ever want to
 ```python
     while True:
 ```
-
+At the start of our game loop we create an instance of the `TicTacToe` object, and announce our intention:
 ```python
         game = TicTacToe()
         print("Let's play Naughts and Crosses!")
 ```
-
+There is an inner loop here that keeps going until the game is won, drawn or lost… we have a useful property to check
+that.  Each time around the loop we print out what the board look like, asking the object to print like this 
+automatically invokes the `__str__()` method:
 ```python
         while not game.win_draw_lose:
             print('\nCurrent state of game:')
             print(game)
 ```
-
+Now we have some player input so we should anticipate problems, using a `try…except…` construct will make sure we have
+a chance of keeping control of any such problems.  We ask for a game play, using `game.player` to display either 'O' or
+'X' and then attempt to convert that typed in game play into an integer.  Note that if the player does not enter a 
+number then the attempted conversion will raise an exception, we'll handle this later but we need not worry about it
+in the rest of this piece of code.
 ```python
             try:
                 mv = input(f'Where would you like to play your {game.player}? ')
                 position = int(mv)
 ```
-
+We have the players intended move now in `position` (_extrenal_ representation), so that can be passed to 
+`game.player_move()` to place the appropriate symbol.  Remember that `player_move()` can raise a couple of exceptions, 
+however, as we are in the middle of a `try…except…` construct we need not worry about errors at this point and can 
+continue knowing that the move was accepted.
 ```python
                 game.player_move(position)
 ```
-
+This is the point at which we check for the game having been won or drawn, as the current player cannot have lost by
+making a move, we need not check for the 'lose' condition.  If either of the two conditions are met then we print out 
+the game grid in its final position along with a message indicating the win or draw status.  Then there is a `break` in
+each case: this will exit the `while not game.win_draw_lose` loop allowing a new game to begin.
 ```python
                 if game.win:
                     print(game)
@@ -579,27 +591,32 @@ We are going to set up a 'forever' loop to keep playing… we won't ever want to
                     print('**DRAW** That was a little pointless in the end.')
                     break
 ```
-
+If the game is not won or drawn though, then we move the game object on to the next player before repeating the play
+position input at the top of the `while not game.win_draw_lose` loop.
 ```python
                 game.next_player()
 ```
-
+Remember those error possibilities with the `game.player_move(position)`? Well here at the end of the `try…` construct 
+we have a series of `except…` clauses picking up on the specific errors that we are expecting.  In each case the 
+response is to print an error message as appropriate and then to return to the top of the `while` loop.
 ```python
             except InvalidMove as exc:
                 print(f'Poor choice, Grasshopper, "{mv}" is not and acceptable move: use the numeric keypad layout!')
-                print(f'DEBUG: {exc}')
             except BlockedCell as exc:
                 print(f'Sorry that spot is already taken.')
-                print(f'DEBUG: {exc}')
 ```
-
+There was one other possible exception that we anticipated: when converting the players typed in move, we attempt to 
+convert the string to an integer.  This can raise a `ValueError` that we pick up here to give an appropriate error 
+message before going on back to the top of the `while` loop.
 ```python
             except ValueError as exc:
                 print(f'Please indicate position as though it were the numeric keypad.')
-                print(f'DEBUG: {exc}')
 ```
+At this point, if everything works out as it should, you should have a working Noughts and Crosses game for two players;
+or yourself playing two sides!
 
-< a name='i-always-lose-playing-against-myself'></a>
+
+<a name='i-always-lose-playing-against-myself'></a>
 ## I always lose playing against myself
 
 It can get tiring playing just against yourself, perhaps we can spice things up a bit by getting the computer to play
