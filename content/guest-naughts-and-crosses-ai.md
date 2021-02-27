@@ -622,6 +622,132 @@ or yourself playing two sides!
 It can get tiring playing just against yourself, perhaps we can spice things up a bit by getting the computer to play
 against us?
 
+The [Wikipedia article on Tic-tac-toe](https://en.wikipedia.org/wiki/Tic-tac-toe) has a set of steps forming a strategy 
+that can be followed when playing a game, these steps are an excellent starting point for programming an artificial 
+opponent. Let us take a look at the steps from a programming point of view and work out if it is possible to craft an 
+opponent:
+
+### 1. Win
+
+Go for the win! What we actually want to seek here is one of the winning rows which has a gap and two of the current
+players symbols in. 
+
+![Examples of one move short of a winning line](images/guest-naughts-and-crosses-ai/almost_winning_lines.png)
+
+It would be useful if we could check each line without actually needing to compare all the values
+individually.  There are actually ten distinct combinations of 'O' and 'X' lines, ignoring ordering and reflections, as 
+can be seen in the following graphic
+
+![Image of rows of distinct combinations of Os and Xs](images/guest-naughts-and-crosses-ai/combinations.png)
+
+We need a method to:
+
+* uniquely identify each of the possible lines;
+* particularly pick out two Os or two Xs and a blank, whatever order the symbols are; and
+* not interfere with the existing code logic.
+
+In order to fulfil these requirements we should look at a method that combines the three internal values into a single 
+value that is the same regardless of ordering: this leads us to a summation or product of the values.  Let's see how 
+this works out.
+
+Currently, we have:
+```python
+# Internal representations of the playing symbols
+BLANK_VALUE: int = 0
+O_VALUE: int = 1
+X_VALUE: int = 2
+```
+The combinations result in:
+
+| combination | values | sum | product |
+| :---: | :---: | ---: | ---: |
+| _ _ _ | 0 0 0 | 0 | 0 |
+| O _ _ | 1 0 0 | 1 | 0 |
+| O O _ | 1 1 0 | 2 | 0 |
+| O O O | 1 1 1 | 3 | 1 |
+| O X _ | 1 2 0 | 3 | 0 |
+| O O X | 1 1 2 | 4 | 2 |
+| X _ _ | 2 0 0 | 2 | 0 |
+| X X _ | 2 2 0 | 4 | 0 |
+| X X X | 2 2 2 | 6 | 8 |
+| X X O | 2 2 1 | 5 | 4 |
+
+From these results it is easy to see that two Xs and a blank uniquely give a sum of four and a product of zero; 
+unfortunately two Os and a blank give exactly the same values as one X and two blanks.  The product value actually only
+really identifies when there is a space in the line, and it is necessary to calculate both the sum and the product to 
+correctly identify the one line that we do want.  This seems excessive.  Part of the problem with separating the 
+identity of 'O' and 'X' is that the values we currently have are factors of each other, perhaps using prime numbers 
+would make a difference?
+
+Suggested new values:
+```python
+# Internal representations of the playing symbols
+BLANK_VALUE: int = 2
+O_VALUE: int = 3
+X_VALUE: int = 5
+```
+The combinations result in:
+
+| combination | values | sum | product |
+| :---: | :---: | ---: | ---: |
+| _ _ _ | 2 2 2 | 6 | 8 |
+| O _ _ | 3 2 2 | 7 | 12 |
+| O O _ | 3 3 2 | 8 | 18 |
+| O O O | 3 3 3 | 9 | 27 |
+| O X _ | 3 5 2 | 10 | 30 |
+| O O X | 3 3 5 | 11 | 45 |
+| X _ _ | 5 2 2 | 9 | 20 |
+| X X _ | 5 5 2 | 12 | 50 |
+| X X X | 5 5 5 | 15 | 125 |
+| X X O | 5 5 3 | 13 | 75 |
+
+Now we have unique values for both the two Os and the two Xs, in the sum and the product.  However, in the summation
+there is a conflict of identificaion for the rows consisting of three Os and of a single X.  We could experiment with
+other values, but the product values are fully unique across our requirements.
+
+In order to seek a winning move we can scan through the `WINNING_COMBINATIONS` to search for a product of 18 for a 'O'
+win or 50 for an 'X' win.  In our code we can do something like this:
+```python
+# New imports
+from collections import defaultdict
+from functools import reduce
+from operator import mul
+
+# Update the internal representations of the playing symbols, this will automatically change 
+# the internal values throughout the program.
+BLANK_VALUE: int = 2
+O_VALUE: int = 3
+X_VALUE: int = 5
+
+# Add a new function to the class.
+class TicTacToe:
+  
+    def _ai_move(self) -> int:
+        """Identify a move for the computer to make"""
+        winning_lines = defaultdict(set)
+        for line in WINNING_COMBINATIONS:
+            prod = reduce(mul, [self._board[c] for c in line])
+            winning_lines[prod].add(line)
+```
+We are creating a dictionary of lines that share the same 'product value', so if there are multiple lines capable of a
+winning move then they will all be listed in the `set` associated with the appropriate value.
+
+
+### 2. Block
+
+### 3. Fork
+
+### 4. Blocking an opponent's fork
+
+### 5. Centre
+
+### 6. Opposite corner
+
+### 7. Empty corner
+
+### 8. Empty side
+
+
 
 <!-- add your closer here! -->
 
