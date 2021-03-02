@@ -627,7 +627,7 @@ that can be followed when playing a game, these steps are an excellent starting 
 opponent. Let us take a look at the steps from a programming point of view and work out if it is possible to craft an 
 opponent:
 
-### 1. Win
+![1. Win](images/guest-naughts-and-crosses-ai/t_1_win.png)
 
 Go for the win! What we actually want to seek here is one of the winning rows which has a gap and two of the current
 players symbols in. 
@@ -730,22 +730,72 @@ class TicTacToe:
             winning_lines[prod].add(line)
 ```
 We are creating a dictionary of lines that share the same 'product value', so if there are multiple lines capable of a
-winning move then they will all be listed in the `set` associated with the appropriate value.
+winning move then they will all be listed in the `set` associated with the appropriate value. Speaking of winning moves,
+it would be useful to define the values that we are looking for up at the top of the file, we'll create a dictionary
+named `WINNING_PROD`:
+```python
+# The product of values in an *almost* winning line…
+WINNING_PROD = {
+    O_VALUE: O_VALUE * O_VALUE * BLANK_VALUE,
+    X_VALUE: X_VALUE * X_VALUE * BLANK_VALUE,
+}
+```
+Note that the references are for `O_VALUE`, `X_VALUE` and 'BLANK_VALUE' so that if we change those again, they will 
+be automatically updated.  Now that that has been done, it is a very simple test to check if a winning line is 
+available.
+```python
+        # Let's see if there is a winning line for the current player
+        if winning_lines[WINNING_PROD[self._turn]]:
+            # find the blank in the first winning line.
+            line = winning_lines[WINNING_PROD[self._turn]].pop()
+            return [n for n in line if self._board[n] == BLANK_VALUE][0]
 
+```
+This takes advantage of the `defaultdict` property of returning an empty entry if the requested index doesn't exist.  If
+there is a set associated with the appropriate index then one item, it doesn't matter which as multiple entries will all
+be appropriate 'nearly winning lines.'  A list comprehension searches out the `BLANK_VALUE` and finally returns the 
+_internal_ location of the gap by dereferencing the first, and only, element.
 
-### 2. Block
+![2. Block](images/guest-naughts-and-crosses-ai/t_2_block.png)
 
-### 3. Fork
+If we cannot win with the next move, then the next priority is to make sure that our opponent doesn't win… we need to 
+play a blocking move; or, to put it another way, put our symbol in the spot when the opponent could make a winning
+move.  Conveniently we have already created a dictionary holing all the lines that could be played, and that includes 
+'nearly winning lines' of our opponents too.  This means that a block move is just a case of looking for a winning
+position like above, but for the opponent.
+```python
+        # 2. Block: If the opponent has two in a row, the player
+        #       must play the third themselves to block the opponent.
+        if winning_lines[WINNING_PROD[OPPONENT[self._turn]]]:
+            # find the blank to play a block.
+            line = winning_lines[WINNING_PROD[OPPONENT[self._turn]]].pop()
+            return [n for n in line if self._board[n] == BLANK_VALUE][0]
+```
+This is almost exactly the same as the first section above, but uses the `OPPONENT` dictionary to pick out our
+opponents symbol instead.
 
-### 4. Blocking an opponent's fork
+The similarities of these two pieces of code indicate a good place to examine for refactoring once we have completed
+the function.
 
-### 5. Centre
+![3. Fork](images/guest-naughts-and-crosses-ai/t_3_fork.png)
 
-### 6. Opposite corner
+Creating a fork means placing a piece that can contribute to two separate lines to give a win.
 
-### 7. Empty corner
+![Image showing examples of forks](images/guest-naughts-and-crosses-ai/fork_examples.png)
 
-### 8. Empty side
+In this image the first two grids show 'O' having just played a fork move (indicated by the green 'O'); in the second 
+two grids we see just why these positions are called 'forks,' the cyan '+' marks the alternative places that 'X' could 
+play, in each case 'O' wins on the next turn by playing the alternative.
+
+![4. Blocking an opponent's fork](images/guest-naughts-and-crosses-ai/t_4_block_fork.png)
+
+![5. Centre](images/guest-naughts-and-crosses-ai/t_5_centre.png)
+
+![6. Opposite corner](images/guest-naughts-and-crosses-ai/t_6_opposite.png)
+
+![7. Empty corner](images/guest-naughts-and-crosses-ai/t_7_empty_corner.png)
+
+![8. Empty side](images/guest-naughts-and-crosses-ai/t_8_empty_side.png)
 
 
 
