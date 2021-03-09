@@ -17,6 +17,7 @@ a game? cover: images/featured/pb-guest.png
     * [Who's the winner?](#whos-the-winner)
 * [Let's play](#lets-play)
 * [I always lose playing against myself](#i-always-lose-playing-against-myself)
+    * [It's your move machine!](#its-your-move-machine)
 * [References](#references)
 
 <a name="introduction"></a>
@@ -570,7 +571,7 @@ in the rest of this piece of code.
                 mv = input(f'Where would you like to play your {game.player}? ')
                 position = int(mv)
 ```
-We have the players intended move now in `position` (_extrenal_ representation), so that can be passed to 
+We have the players intended move now in `position` (_external_ representation), so that can be passed to 
 `game.player_move()` to place the appropriate symbol.  Remember that `player_move()` can raise a couple of exceptions, 
 however, as we are in the middle of a `try…except…` construct we need not worry about errors at this point and can 
 continue knowing that the move was accepted.
@@ -600,21 +601,20 @@ Remember those error possibilities with the `game.player_move(position)`? Well h
 we have a series of `except…` clauses picking up on the specific errors that we are expecting.  In each case the 
 response is to print an error message as appropriate and then to return to the top of the `while` loop.
 ```python
-            except InvalidMove as exc:
+            except InvalidMove:
                 print(f'Poor choice, Grasshopper, "{mv}" is not and acceptable move: use the numeric keypad layout!')
-            except BlockedCell as exc:
+            except BlockedCell:
                 print(f'Sorry that spot is already taken.')
 ```
 There was one other possible exception that we anticipated: when converting the players typed in move, we attempt to 
 convert the string to an integer.  This can raise a `ValueError` that we pick up here to give an appropriate error 
 message before going on back to the top of the `while` loop.
 ```python
-            except ValueError as exc:
+            except ValueError:
                 print(f'Please indicate position as though it were the numeric keypad.')
 ```
 At this point, if everything works out as it should, you should have a working Noughts and Crosses game for two players;
 or yourself playing two sides!
-
 
 <a name='i-always-lose-playing-against-myself'></a>
 ## I always lose playing against myself
@@ -744,12 +744,11 @@ Note that the references are for `O_VALUE`, `X_VALUE` and 'BLANK_VALUE' so that 
 be automatically updated.  Now that that has been done, it is a very simple test to check if a winning line is 
 available.
 ```python
-        # Let's see if there is a winning line for the current player
+        # 1. Let's see if there is a winning line for the current player
         if winning_lines[WINNING_PROD[self._turn]]:
             # find the blank in the first winning line.
             line = winning_lines[WINNING_PROD[self._turn]].pop()
             return [n for n in line if self._board[n] == BLANK_VALUE][0]
-
 ```
 This takes advantage of the `defaultdict` property of returning an empty entry if the requested index doesn't exist.  If
 there is a set associated with the appropriate index then one item, it doesn't matter which as multiple entries will all
@@ -789,19 +788,129 @@ play, in each case 'O' wins on the next turn by playing the alternative.
 
 ![4. Blocking an opponent's fork](images/guest-naughts-and-crosses-ai/t_4_block_fork.png)
 
+In a similar case to the above, blocking an opponent's fork means anticipating when your opponent is about to play 
+a move that will lead to a fork and playing in that spot before they can.  If we examine the moves leading up to 
+position _A1_ above:
+
+![Image of set of boards showing each move leading to OXO on the diagonal](images/guest-naughts-and-crosses-ai/play_to_o_fork_threat.png)
+
+'O' starts off playing in the bottom corner, 'X' replies by playing in the middle, then 'O' plays in the opposite 
+corner… at this point 'X' spots that 'O' can play in either of the other two corners (marked with the cyan '+' symbols) 
+and end up with a fork: he cannot possibly block both of these cases though, and so the actual solution is to go for 
+the draw and play in a side.
+
+For now, we'll leave coding of forks because we want some form of weakness in our algorithm that a player might have 
+some small change of winning!
+
 ![5. Centre](images/guest-naughts-and-crosses-ai/t_5_centre.png)
+
+This play is a no-brainer: play in the centre. If this is the very first move of a game, then this is not such a good
+move though, as playing in a corner is the move that grants your opponent the most opportunities to make a mistake.
+```python
+        # 5. Center: A player marks the center.
+        if self._board[4] == BLANK_VALUE:
+            return 4
+```
 
 ![6. Opposite corner](images/guest-naughts-and-crosses-ai/t_6_opposite.png)
 
+If we have progressed this far through our algorithm, then the chances are that there haven't been many moves: let's 
+see if we can find an empty space opposite a space occupied by our opponent:
+```python
+        # 6. Opposite corner: If the opponent is in a corner, the
+        #       player plays the opposite corner.
+        for x, y in [(0, 8), (2, 6), (6, 2), (8, 0)]:
+            if self._board[x] == OPPONENT[self._turn] and self._board[y] == BLANK_VALUE:
+                return y
+```
+
 ![7. Empty corner](images/guest-naughts-and-crosses-ai/t_7_empty_corner.png)
+
+Failing to find an opposite corner, we just select an empty corner.
+```python
+        # 7. Empty corner: The player plays in a corner square.
+        for x in [0, 2, 6, 8]:
+            if self._board[x] == BLANK_VALUE:
+                return x
+```
 
 ![8. Empty side](images/guest-naughts-and-crosses-ai/t_8_empty_side.png)
 
+Finally, all other spaces have been checked, so there can only be side(s) remaining. Select one of those.
+```python
+        # 8. Empty side: The player plays in a middle square on any
+        #       of the 4 sides.
+        for x in [1, 3, 5, 7]:
+            if self._board[x] == BLANK_VALUE:
+                return x
+```
+By the time we have worked through all of these options a valid move will have been returned—in _internal_ 
+representation. However, what if something that we were not expecting happened?  For example, if the `_ai_move()`
+method was called when the board has no moves left?  It is worth including an exception at the end of a routine
+that is intended to return a value, rather than leave it to default to returning `None`:
+```python
+        raise InvalidMove(f"Couldn't identify a move to make for AI controlled {self.player}")
+```
+
+<a name='its-your-move-machine'></a>
+### It's your move machine!
+
+Our `_ai_move()` method is now as complete as we need it to be, so all that is required is to build a mechanism for it
+to be called.
+
+First off, as we will want to let the player know what is going on we need to have a method that calls this internal 
+method and translates it to _external_ representation ready to be shown to the user.  The easiest, and quickest, way to
+achieve this is to add a method like this:
+```python
+    def ai_move(self) -> str:
+        return str(self._cell_to_ndx_(self._ai_move()))
+```
+We wrap up the internal method in a call to the helper method `_cell_to_ndx()` before casting it to a string ready for
+return.
+
+The driver code at the bottom of our file can now be modified to make use of this at any time to request an automatic
+move selection: notice that it doesn't look for an 'O' move or an 'X' move, it looks purely for a _next_ move.  This 
+being the case, we can replace the move request `input()` with a call to `game.ai_move()` and receive an appropriate
+selection regardless of which player is next.  So, we can replace:
+```python
+                mv = input(f'Where would you like to play your {game.player}? ')
+                position = int(mv)
+```
+with
+```python
+                if game.player == O_SYM:
+                    mv = input(f'Where would you like to play your {game.player}? ')
+                else:
+                    mv = game.ai_move()
+                    print(f'\nComputer chooses to play {game.player} at {mv}.')
+                position = int(mv)
+```
+and the computer will seamlessly take over playing the 'X' moves.
 
 
-<!-- add your closer here! -->
+## And finally Esther…
+
+There you have it: a playable naughts and crosses game to keep your little darlings entertained for hours… however, 
+there is always room for improvement. For example:
+
+* In the `_ai_move()` code there is a great similarity in the code between options 1 (win) and 2 (block), maybe this 
+  could be pulled out into a helper method?
+* Once you start playing, there is no easy way to stop: would it be possible to give an easy escape by watching for 
+  the player typing 'quit' or just 'q'?
+* The printing of the grid doesn't give any help as to the numbers to press: you just have an error message telling you
+  that the numeric keypad is the pattern to follow. What is a player is using a laptop without a numeric keypad?
+  
+
+## Gists of code:
+
+For your convenience, the completed versions of the naughts and crosses code are stored here:
+
+* Manual version: [tictactoe_manual.py](https://gist.github.com/GeoffRiley/5df355830937dd84828fd7470c3b46ac)
+* Computer assisted version: [tictactoe_ai.py](https://gist.github.com/GeoffRiley/84a4c52af105062c6620cb405da6660c)
 
 -- [Geoff Riley](pages/guests.html#geoff-riley)
+
+![Image of slogan: May the code be with you](images/guest-naughts-and-crosses-ai/the_code_be_with_you.png)
 
 <a name='references'></a>
 ## References
@@ -814,280 +923,3 @@ play, in each case 'O' wins on the next turn by playing the alternative.
 * [Python Docs, Nested list comprehension](https://docs.python.org/3.8/tutorial/datastructures.html#nested-list-comprehensions)
 * [Python Docs, `all(iterable)`](https://docs.python.org/3.8/library/functions.html#all)
 * [Python Docs, `any(iterable)`](https://docs.python.org/3.8/library/functions.html#any)
-
------
-
-Markdown:[Markdown extended reference](https://www.markdownguide.org/extended-syntax/)
-
-```python
-from collections import defaultdict
-from functools import reduce
-from itertools import cycle
-from operator import mul
-from typing import List, Union, Set, Tuple, Iterator
-
-# Definition of game elements
-# External representation of grid is numbered 1 to 9;
-# internal representation of grid is numbered 0 to 8.
-# Working with a 3 x 3 grid represented as a linear array of nine cells
-# initialise to `DEFAULT`
-# External representations of the playing symbols 
-BLANK_SYM: str = '_'
-O_SYM: str = 'O'
-X_SYM: str = 'X'
-# Internal representations of the playing symbols 
-BLANK_VALUE: int = 2
-O_VALUE: int = 3
-X_VALUE: int = 5
-# Translation between systems
-VAL_TO_SYM: dict = {
-    BLANK_VALUE: BLANK_SYM,
-    O_VALUE: O_SYM,
-    X_VALUE: X_SYM,
-}
-SYM_TO_VAL: dict = {
-    BLANK_SYM: BLANK_VALUE,
-    O_SYM: O_VALUE,
-    X_SYM: X_VALUE,
-}
-OPPONENT: dict = {
-    O_VALUE: X_VALUE,
-    X_VALUE: O_VALUE,
-}
-EXTERNAL_TO_INTERNAL = {7: 0, 8: 1, 9: 2, 4: 3, 5: 4, 6: 5, 1: 6, 2: 7, 3: 8}
-INTERNAL_TO_EXTERNAL = {0: 7, 1: 8, 2: 9, 3: 4, 4: 5, 5: 6, 6: 1, 7: 2, 8: 3}
-# Visualise the board cells numbered as:
-#  7  8  9
-#  4  5  6
-#  1  2  3
-# (Just like a numeric keypad!)
-VALID_POSITIONS: Set[int] = set(range(1, 10))
-# A winning combination exists for three symbols in a row:
-WINNING_COMBINATIONS: List[Tuple[int, int, int]] = [
-    (0, 1, 2), (3, 4, 5), (6, 7, 8),
-    (0, 3, 6), (1, 4, 7), (2, 5, 8),
-    (0, 4, 8), (2, 4, 6),
-]
-# The product of values in an *almost* winning line…
-WINNING_PROD = {
-    O_VALUE: 18,
-    X_VALUE: 50,
-}
-
-
-class BlockedCell(Exception):
-    pass
-
-
-class InvalidMove(Exception):
-    pass
-
-
-class TicTacToe:
-    # define the types of various internal variables
-    _board: List[int]
-    _turn_cycle: Iterator[int]
-    _turn: int
-    _move: int
-
-    def __init__(self):
-        """Constructor, allocate the blank board"""
-        # Create an array of cells to hold the grid positions.
-        self._board = [BLANK_VALUE] * len(VALID_POSITIONS)
-        self._turn_cycle = cycle([O_VALUE, X_VALUE])
-        self._turn = self._next_turn()
-        self._move = 0
-
-    def _next_turn(self) -> int:
-        return next(self._turn_cycle)
-
-    def __str__(self):
-        """Print the board"""
-        return ' ' + '\n---+---+---\n '.join(
-            ' | '.join(VAL_TO_SYM[c]
-                       for c in self._board[s * 3:(s + 1) * 3])
-            for s in range(3))
-
-    @staticmethod
-    def _ndx_to_cell_(ndx: int) -> int:
-        return EXTERNAL_TO_INTERNAL[ndx]
-
-    @staticmethod
-    def _cell_to_ndx_(cell: int) -> int:
-        return INTERNAL_TO_EXTERNAL[cell]
-
-    def player_move(self, target_position: int):
-        """
-        Attempt to place the player move
-    
-        May raise exceptions: BlockCell, InvalidMove
-        """
-        if target_position in VALID_POSITIONS:
-            cell = self._ndx_to_cell_(target_position)
-            if self._board[cell] is BLANK_VALUE:
-                self._board[cell] = self._turn
-            else:
-                raise BlockedCell(
-                    f'Cannot play at {target_position}, it is already held by {VAL_TO_SYM[self._board[cell]]}')
-        else:
-            raise InvalidMove(f'Invalid move, {target_position} not available')
-
-    def next_player(self) -> str:
-        self._turn = self._next_turn()
-        return VAL_TO_SYM[self._turn]
-
-    def find_winner(self) -> Union[int, None]:
-        """Find a winner, 'O', 'X' or None"""
-        for s in [O_VALUE, X_VALUE]:
-            if any(all(self._board[c] == s for c in combo) for combo in WINNING_COMBINATIONS):
-                return s
-        return None
-
-    @property
-    def win(self) -> bool:
-        """Test if the game is won"""
-        return self.find_winner() == self._turn
-
-    @property
-    def lose(self) -> bool:
-        """Test if the game is lost"""
-        return self.find_winner() == OPPONENT[self._turn]
-
-    @property
-    def draw(self) -> bool:
-        """Test if the game is a draw"""
-        return not (any(c == BLANK_VALUE for c in self._board))
-
-    @property
-    def win_draw_lose(self) -> bool:
-        """Test if the game is still in play"""
-        return self.win or self.lose or self.draw
-
-    @property
-    def player(self) -> str:
-        return VAL_TO_SYM[self._turn]
-
-    def ai_move(self) -> str:
-        return str(self._cell_to_ndx_(self._ai_move()))
-
-    def _ai_move(self) -> int:
-        """Work out a move for the computer"""
-        # Working from the Strategy presented on Wikipedia
-        #       [https://en.wikipedia.org/wiki/Tic-tac-toe#Strategy]
-        # 1. Win: If the player has two in a row, they can place a
-        #       third to get three in a row.
-        #
-        # Using 3 and 5 for 'O' and 'X' and 2 for empty means that
-        # in order to identify a 'winning' line we can take the
-        # product of the values to work out what if an appropriate
-        # gap is present.
-        # (Distinct) Possible products are:
-        #   _ _ _ → 2 x 2 x 2 = 8
-        #   O _ _ → 3 x 2 x 2 = 12
-        #   O O _ → 3 x 3 x 2 = 18 [Winning O line]
-        #   O O O → 3 x 3 x 3 = 27
-        #   O X _ → 3 x 5 x 2 = 30
-        #   O O X → 3 x 3 x 5 = 45
-        #   X _ _ → 5 x 2 x 2 = 20
-        #   X X _ → 5 x 5 x 2 = 50 [Winning X line]
-        #   X X X → 5 x 5 x 5 = 125
-        #   X X O → 5 x 5 x 3 = 75
-        # Therefore it can be seen that there is a single value
-        # indicating a winning line for either Os or Xs
-        winning_lines = defaultdict(set)
-        for line in WINNING_COMBINATIONS:
-            prod = reduce(mul, [self._board[c] for c in line])
-            winning_lines[prod].add(line)
-
-        # Let's see if there is a winning line for the current player
-        if winning_lines[WINNING_PROD[self._turn]]:
-            # find the blank in the first winning line.
-            line = winning_lines[WINNING_PROD[self._turn]].pop()
-            return [n for n in line if self._board[n] == BLANK_VALUE][0]
-
-        # 2. Block: If the opponent has two in a row, the player
-        #       must play the third themselves to block the opponent.
-        if winning_lines[WINNING_PROD[OPPONENT[self._turn]]]:
-            # find the blank to play a block.
-            line = winning_lines[WINNING_PROD[OPPONENT[self._turn]]].pop()
-            return [n for n in line if self._board[n] == BLANK_VALUE][0]
-
-        # 3. Fork: Create an opportunity where the player has two
-        #       ways to win (two non-blocked lines of 2).
-
-        # 4. Blocking an opponent's fork:
-        #       If there is only one possible fork for the opponent,
-        #       the player should block it.
-        #       Otherwise, the player should block all forks in any
-        #       way that simultaneously allows them to create two
-        #       in a row.
-        #       Otherwise, the player should create a two in a row
-        #       to force the opponent into defending, as long as it
-        #       doesn't result in them creating a fork.
-        #       For example, if "X" has two opposite corners and
-        #       "O" has the center, "O" must not play a corner move
-        #       in order to win. (Playing a corner move in this
-        #       scenario creates a fork for "X" to win.)
-
-        # 5. Center: A player marks the center. (If it is the first
-        #       move of the game, playing a corner move gives the
-        #       second player more opportunities to make a mistake
-        #       and may therefore be the better choice; however, it
-        #       makes no difference between perfect players.)
-        if self._board[4] == BLANK_VALUE:
-            return 4
-
-        # 6. Opposite corner: If the opponent is in the corner, the
-        #       player plays the opposite corner.
-        for x, y in [(0, 8), (2, 6), (6, 2), (8, 0)]:
-            if self._board[x] == OPPONENT[self._turn] and self._board[y] == BLANK_VALUE:
-                return y
-
-        # 7. Empty corner: The player plays in a corner square.
-        for x in [0, 2, 6, 8]:
-            if self._board[x] == BLANK_VALUE:
-                return x
-
-        # 8. Empty side: The player plays in a middle square on any
-        #       of the 4 sides.
-        for x in [1, 3, 5, 7]:
-            if self._board[x] == BLANK_VALUE:
-                return x
-
-        raise InvalidMove(f"Couldn't identify a move to make for AI controlled {self.player}")
-
-
-if __name__ == "__main__":
-    while True:
-        game = TicTacToe()
-        print("Let's play Naughts and Crosses!")
-        while not game.win_draw_lose:
-            print('\nCurrent state of game:')
-            print(game)
-            try:
-                if game.player == O_SYM:
-                    mv = input(f'Where would you like to play your {game.player}? ')
-                else:
-                    mv = game.ai_move()
-                    print(f'\nComputer chooses to play {game.player} at {mv}.')
-                position = int(mv)
-                game.player_move(position)
-                if game.win:
-                    print(game)
-                    print(f'**WIN** We have a WINNER!!  Well done {game.player}.')
-                    break
-                if game.draw:
-                    print(game)
-                    print('**DRAW** That was a little pointless in the end.')
-                    break
-                game.next_player()
-            except InvalidMove as exc:
-                print(f'Poor choice, Grasshopper, "{mv}" is not and acceptable move: use the numeric keypad layout!')
-                print(f'DEBUG: {exc}')
-            except BlockedCell as exc:
-                print(f'Sorry that spot is already taken.')
-                print(f'DEBUG: {exc}')
-            except ValueError as exc:
-                print(f'Please indicate position as though it were the numeric keypad.')
-                print(f'DEBUG: {exc}')
-```
